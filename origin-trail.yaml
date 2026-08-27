@@ -1,0 +1,116 @@
+openapi: 3.1.0
+info:
+  title: Origin Trail API
+  version: 0.1.0
+  description: Resolve product provenance, manufacturing/growing locations, and company ownership.
+servers:
+  - url: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: API is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/products/resolve:
+    post:
+      summary: Resolve a product's provenance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductLookup"
+      responses:
+        "200":
+          description: Product provenance result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginTrailResult"
+        "400":
+          description: Invalid request
+        "500":
+          description: Product origin could not be resolved
+components:
+  schemas:
+    ProductLookup:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Tim Tam Original
+        brand:
+          type: string
+          example: Arnott's
+    Location:
+      type: object
+      properties:
+        country:
+          type: [string, "null"]
+        stateRegion:
+          type: [string, "null"]
+        cityTown:
+          type: [string, "null"]
+    OriginTrailResult:
+      type: object
+      required: [product, production, brand, parentCompany, notes]
+      properties:
+        product:
+          type: object
+          properties:
+            name:
+              type: string
+            brand:
+              type: [string, "null"]
+        production:
+          type: object
+          properties:
+            manufacturer:
+              type: [string, "null"]
+            manufacturingLocation:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+            growingLocation:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+            confidence:
+              $ref: "#/components/schemas/Confidence"
+        brand:
+          type: object
+          properties:
+            name:
+              type: [string, "null"]
+            headquarters:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+        parentCompany:
+          type: object
+          properties:
+            name:
+              type: [string, "null"]
+            headquarters:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+            confidence:
+              $ref: "#/components/schemas/Confidence"
+        notes:
+          type: array
+          items:
+            type: string
+    Confidence:
+      type: string
+      enum: [high, medium, low, unknown]
