@@ -1,10 +1,14 @@
 import { supabase } from "../config/supabase.js";
 import type { OriginTrailResult } from "../models/origin-trail.js";
+import type {
+  InactivateProductOptions,
+  ProductWithRelations,
+} from "../models/product.js";
 
 export async function findProduct(
   name: string,
   brand?: string,
-) {
+): Promise<ProductWithRelations | null> {
   let query = supabase
     .from("products")
     .select(`
@@ -16,7 +20,8 @@ export async function findProduct(
       ),
       product_identifiers (*)
     `)
-    .ilike("name", name);
+    .ilike("name", name)
+    .is("inactive_at", null);
 
   if (brand) {
     query = query.ilike("brand", brand);
@@ -33,7 +38,7 @@ export async function findProduct(
     );
   }
 
-  return data;
+  return data as ProductWithRelations | null;
 }
 
 export async function saveProduct(
@@ -78,11 +83,6 @@ export async function saveProduct(
     );
   }
 
-  /*
-   * Brand and parent-company sources describe the product generally,
-   * so they are attached directly to the product rather than to a
-   * specific origin.
-   */
   const productSources = [
     ...result.brand.sources.map((source) => ({
       product_id: product.id,
@@ -115,12 +115,6 @@ export async function saveProduct(
     }
   }
 
-  /*
-   * Each manufacturing or growing origin gets its own database row.
-   *
-   * We save them one at a time because we need the generated origin ID
-   * before we can attach that origin's sources.
-   */
   for (const origin of result.production.origins) {
     const { data: savedOrigin, error: originError } =
       await supabase
@@ -128,6 +122,7 @@ export async function saveProduct(
         .insert({
           product_id: product.id,
           origin_type: origin.type,
+
           producer: origin.producer,
 
           country: origin.location?.country ?? null,
@@ -173,4 +168,79 @@ export async function saveProduct(
   }
 
   return product;
+}
+
+export async function inactivateProduct(
+  productId: string,
+  options: InactivateProductOptions,
+) {
+  const requiresMergeTarget =
+    options.reason === "duplicate" ||
+    options.reason === "merged";
+
+  if (requiresMergeTarget && !options.mergedIntoProductId) {
+    throw new Error(
+      `A canonical product is required when marking a product as ${options.reason}`,
+    );
+  }
+
+  if (
+    options.mergedIntoProductId &&
+    options.mergedIntoProductId === productId
+  ) {
+    throw new Error(
+      "A product cannot be merged into itself",
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("products")
+    .update({
+      inactive_at: now,
+      inactive_reason: options.reason,
+      inactive_notes: options.notes ?? null,
+      merged_into_product_id:
+        options.mergedIntoProductId ?? null,
+      updated_at: now,
+    })
+    .eq("id", productId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(
+      `Unable to mark product inactive: ${error.message}`,
+    );
+  }
+
+  return data;
+}
+
+export async function reactivateProduct(
+  productId: string,
+) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("products")
+    .update({
+      inactive_at: null,
+      inactive_reason: null,
+      inactive_notes: null,
+      merged_into_product_id: null,
+      updated_at: now,
+    })
+    .eq("id", productId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(
+      `Unable to reactivate product: ${error.message}`,
+    );
+  }
+
+  return data;
 }
