@@ -19,6 +19,9 @@ productsRouter.post("/resolve", async (req, res) => {
     return res.json(result);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Unable to resolve product origin" });
+
+    return res.status(500).json({
+      error: "Unable to resolve product origin",
+    });
   }
 });

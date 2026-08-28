@@ -1,22 +1,39 @@
 # Origin Trail
 
-V0 backend API for resolving product provenance using AI.
+Origin Trail is a product-provenance API.
+
+## V0.1
+
+This version adds web-search-backed provenance research, sources for production/brand/parent-company claims, cleaner nullable strings, and formal backend geography.
 
 ## Setup
 
-1. Replace `OPENAI_API_KEY=replace-me` in `src/config/.env`.
-2. Run `npm install`.
-3. Run `npm run dev`.
-4. Check `http://localhost:3000/health`.
-
-## Resolve a product
+Copy the env template:
 
 ```bash
-curl -X POST http://localhost:3000/api/products/resolve \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Tim Tam Original","brand":"Arnott'\''s"}'
+cp src/config/.env.example src/config/.env
 ```
 
-## API definition
+Add your OpenAI API key to `src/config/.env`, then:
 
-`origin-trail.yaml` is an OpenAPI 3.1 description of the V0 API.
+```bash
+npm install
+npm run dev
+```
+
+Default server: `http://localhost:8008`
+
+### Resolve a product
+
+`POST /api/products/resolve`
+
+```json
+{
+  "name": "Tim Tam Original",
+  "brand": "Arnott's"
+}
+```
+
+`src/config/.env` is intentionally ignored by Git. Do not commit API keys.
+
+The backend returns formal geographic facts. Consumer-facing display choices, including treating Hawaii, Puerto Rico, or Guam as distinct top-level UI regions, belong in the frontend rather than canonical API data.

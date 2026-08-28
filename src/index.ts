@@ -13,5 +13,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/products", productsRouter);
 
 app.listen(env.PORT, () => {
-  console.log(`Origin Trail running on http://localhost:${env.PORT}`);
+  console.log(
+    `Origin Trail running on http://localhost:${env.PORT}`,
+  );
 });
