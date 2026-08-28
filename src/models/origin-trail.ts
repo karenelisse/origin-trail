@@ -47,6 +47,20 @@ export const sourceSchema = z.object({
   sourceType: sourceTypeSchema,
 });
 
+export const originTypeSchema = z.enum([
+  "manufacturing",
+  "growing",
+]);
+
+export const productOriginSchema = z.object({
+  type: originTypeSchema,
+  producer: nullableStringSchema,
+  location: locationSchema.nullable(),
+  market: nullableStringSchema,
+  confidence: confidenceSchema,
+  sources: z.array(sourceSchema),
+});
+
 export const originTrailResultSchema = z.object({
   product: z.object({
     name: z.string(),
@@ -54,11 +68,7 @@ export const originTrailResultSchema = z.object({
   }),
 
   production: z.object({
-    manufacturer: nullableStringSchema,
-    manufacturingLocation: locationSchema.nullable(),
-    growingLocation: locationSchema.nullable(),
-    confidence: confidenceSchema,
-    sources: z.array(sourceSchema),
+    origins: z.array(productOriginSchema),
   }),
 
   brand: z.object({

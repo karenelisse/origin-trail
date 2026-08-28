@@ -6,6 +6,7 @@ import {
   originTrailResultSchema,
 } from "../models/origin-trail.js";
 import { ProductLookup } from "../models/product-lookup.js";
+import { saveProduct } from "./product.service.js";
 import { instructions } from "./rules.js";
 
 const openai = new OpenAI({
@@ -44,9 +45,11 @@ export async function resolveProductOrigin(
 
   if (!response.output_parsed) {
     throw new Error(
-      "OpenAI did not return a valid product provenance result",
+      "OpenAI did not return a valid product origin result",
     );
   }
+
+  await saveProduct(response.output_parsed);
 
   return response.output_parsed;
 }

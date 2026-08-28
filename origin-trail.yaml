@@ -1,10 +1,183 @@
 openapi: 3.1.0
+
 info:
   title: Origin Trail API
   version: 0.1.0
-  description: Product provenance lookup API.
+  description: Product origin and ownership lookup API.
+
 servers:
   - url: http://localhost:8008
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    NullableString:
+      type:
+        - string
+        - "null"
+
+    Location:
+      type: object
+      required:
+        - country
+        - stateRegion
+        - cityTown
+      properties:
+        country:
+          $ref: "#/components/schemas/NullableString"
+        stateRegion:
+          $ref: "#/components/schemas/NullableString"
+        cityTown:
+          $ref: "#/components/schemas/NullableString"
+
+    Source:
+      type: object
+      required:
+        - title
+        - url
+        - sourceType
+      properties:
+        title:
+          $ref: "#/components/schemas/NullableString"
+        url:
+          type: string
+        sourceType:
+          type: string
+          enum:
+            - official_company
+            - manufacturer
+            - government
+            - retailer
+            - news
+            - other
+
+    ProductOrigin:
+      type: object
+      required:
+        - type
+        - producer
+        - location
+        - market
+        - confidence
+        - sources
+      properties:
+        type:
+          type: string
+          enum:
+            - manufacturing
+            - growing
+        producer:
+          $ref: "#/components/schemas/NullableString"
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Location"
+            - type: "null"
+        market:
+          $ref: "#/components/schemas/NullableString"
+        confidence:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+            - unknown
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+
+    ProductOriginResult:
+      type: object
+      required:
+        - product
+        - production
+        - brand
+        - parentCompany
+        - notes
+      properties:
+        product:
+          type: object
+          required:
+            - name
+            - brand
+          properties:
+            name:
+              type: string
+            brand:
+              $ref: "#/components/schemas/NullableString"
+
+        production:
+          type: object
+          required:
+            - origins
+          properties:
+            origins:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductOrigin"
+
+        brand:
+          type: object
+          required:
+            - name
+            - headquarters
+            - sources
+          properties:
+            name:
+              $ref: "#/components/schemas/NullableString"
+            headquarters:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+            sources:
+              type: array
+              items:
+                $ref: "#/components/schemas/Source"
+
+        parentCompany:
+          type: object
+          required:
+            - name
+            - headquarters
+            - confidence
+            - sources
+          properties:
+            name:
+              $ref: "#/components/schemas/NullableString"
+            headquarters:
+              oneOf:
+                - $ref: "#/components/schemas/Location"
+                - type: "null"
+            confidence:
+              type: string
+              enum:
+                - high
+                - medium
+                - low
+                - unknown
+            sources:
+              type: array
+              items:
+                $ref: "#/components/schemas/Source"
+
+        notes:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+
 paths:
   /health:
     get:
@@ -12,9 +185,13 @@ paths:
       responses:
         "200":
           description: API is healthy
+
   /api/products/resolve:
     post:
-      summary: Resolve product provenance
+      summary: Resolve product origin and ownership
+      security:
+        - bearerAuth: []
+
       requestBody:
         required: true
         content:
@@ -28,10 +205,40 @@ paths:
                   type: string
                 brand:
                   type: string
+
       responses:
         "200":
-          description: Product provenance result
+          description: Product origin and ownership result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductOriginResult"
+
         "400":
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "401":
+          description: Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "403":
+          description: Origin Trail access has not been approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
         "500":
           description: Unable to resolve product origin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+                
