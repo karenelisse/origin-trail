@@ -43,44 +43,91 @@ export async function findProduct(
 
 export async function saveProduct(
   result: OriginTrailResult,
+  existingProductId?: string,
 ) {
   const now = new Date().toISOString();
 
-  const { data: product, error: productError } = await supabase
-    .from("products")
-    .insert({
-      name: result.product.name,
-      brand: result.product.brand,
+  const productData = {
+    name: result.product.name,
+    brand: result.product.brand,
 
-      brand_hq_country:
-        result.brand.headquarters?.country ?? null,
-      brand_hq_state_region:
-        result.brand.headquarters?.stateRegion ?? null,
-      brand_hq_city_town:
-        result.brand.headquarters?.cityTown ?? null,
+    brand_hq_country:
+      result.brand.headquarters?.country ?? null,
+    brand_hq_state_region:
+      result.brand.headquarters?.stateRegion ?? null,
+    brand_hq_city_town:
+      result.brand.headquarters?.cityTown ?? null,
 
-      parent_company: result.parentCompany.name,
-      parent_hq_country:
-        result.parentCompany.headquarters?.country ?? null,
-      parent_hq_state_region:
-        result.parentCompany.headquarters?.stateRegion ?? null,
-      parent_hq_city_town:
-        result.parentCompany.headquarters?.cityTown ?? null,
+    parent_company: result.parentCompany.name,
+    parent_hq_country:
+      result.parentCompany.headquarters?.country ?? null,
+    parent_hq_state_region:
+      result.parentCompany.headquarters?.stateRegion ?? null,
+    parent_hq_city_town:
+      result.parentCompany.headquarters?.cityTown ?? null,
 
-      parent_company_confidence:
-        result.parentCompany.confidence,
+    parent_company_confidence:
+      result.parentCompany.confidence,
 
-      notes: result.notes,
+    notes: result.notes,
 
-      checked_at: now,
-    })
-    .select()
-    .single();
+    updated_at: now,
+    checked_at: now,
+  };
 
-  if (productError) {
-    throw new Error(
-      `Unable to save product: ${productError.message}`,
-    );
+  let product;
+
+  if (existingProductId) {
+    const { data, error } = await supabase
+      .from("products")
+      .update(productData)
+      .eq("id", existingProductId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Unable to update product: ${error.message}`,
+      );
+    }
+
+    product = data;
+
+    const { error: sourcesDeleteError } = await supabase
+      .from("product_sources")
+      .delete()
+      .eq("product_id", product.id);
+
+    if (sourcesDeleteError) {
+      throw new Error(
+        `Unable to remove old product sources: ${sourcesDeleteError.message}`,
+      );
+    }
+
+    const { error: originsDeleteError } = await supabase
+      .from("product_origins")
+      .delete()
+      .eq("product_id", product.id);
+
+    if (originsDeleteError) {
+      throw new Error(
+        `Unable to remove old product origins: ${originsDeleteError.message}`,
+      );
+    }
+  } else {
+    const { data, error } = await supabase
+      .from("products")
+      .insert(productData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Unable to save product: ${error.message}`,
+      );
+    }
+
+    product = data;
   }
 
   const productSources = [
@@ -122,16 +169,18 @@ export async function saveProduct(
         .insert({
           product_id: product.id,
           origin_type: origin.type,
-
           producer: origin.producer,
 
           country: origin.location?.country ?? null,
-          state_region: origin.location?.stateRegion ?? null,
-          city_town: origin.location?.cityTown ?? null,
+          state_region:
+            origin.location?.stateRegion ?? null,
+          city_town:
+            origin.location?.cityTown ?? null,
 
           market: origin.market,
           confidence: origin.confidence,
 
+          updated_at: now,
           checked_at: now,
         })
         .select()
